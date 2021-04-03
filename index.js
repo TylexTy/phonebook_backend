@@ -5,10 +5,10 @@ const app = express()
 const morgan = require('morgan')
 const cors = require('cors')
 const Person = require('./models/person')
-
+app.use(express.json())
 app.use(cors())
 app.use(express.static('build'))
-app.use(express.json())
+
 morgan.token('body', req => {
     return JSON.stringify(req.body)
 })
