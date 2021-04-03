@@ -27,7 +27,6 @@ app.use(morgan(function (tokens, req, res) {
 app.get('/api/persons', (request,response, next) => {
     Person.find({}).then(result => {
         response.json(result)
-        mongoose.connection.close()
       })
       .catch(error => next(error))
 })
@@ -45,9 +44,12 @@ app.get('/api/persons/:id', (request,response, next) => {
     .catch(error => next(error))
 })
 
-app.get('/info', (request, response) => {
-    let d = new Date();
-    response.send(`Phonebook has info for ${persons.length} people. <br/><br/>${d}`)
+app.get('/api/info', (request, response, next) => {
+
+    Person.find({}).then(persons => {
+        const d = new Date()
+        response.send(`Phonebook has info for ${persons.length} people. <br/><br/>${d}`)
+    })
 })
 
 app.post('/api/persons', (request, response) => {
