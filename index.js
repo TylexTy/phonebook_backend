@@ -24,14 +24,12 @@ app.use(morgan(function (tokens, req, res) {
     ].join(' ')
   }))
 
-app.get('/api/persons', (request,response) => {
+app.get('/api/persons', (request,response, next) => {
     Person.find({}).then(result => {
-        result.forEach(person => {
-            response.json(person)  
-        })
+        response.json(result)
         mongoose.connection.close()
       })
-    
+      .catch(error => next(error))
 })
 
 app.get('/api/persons/:id', (request,response, next) => {
@@ -82,10 +80,10 @@ app.delete('/api/persons/:id', (request, response, next) => {
 app.put('/api/persons/:id', (request,response, next) => {
     const body = request.body
 
-    const contact = new Person({
+    const contact = {
         name: body.name,
         number: body.number,
-    })
+    }
 
     Person.findByIdAndUpdate(request.params.id, contact, {new: true})
         .then(updatedPerson => {
