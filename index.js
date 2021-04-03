@@ -1,11 +1,14 @@
+require('dotenv').config()
 const express = require('express')
 const { request } = require('express')
 const app = express()
 const morgan = require('morgan')
 const cors = require('cors')
-app.use(express.json())
+const Person = require('./models/person')
+
 app.use(cors())
 app.use(express.static('build'))
+app.use(express.json())
 morgan.token('body', req => {
     return JSON.stringify(req.body)
 })
@@ -21,46 +24,27 @@ app.use(morgan(function (tokens, req, res) {
     ].join(' ')
   }))
 
-
-
-
-
-let persons = [
-    {
-        id: 1,
-        name: "Arto Hellas",
-        number: "040-123456"
-    },
-    {
-        id: 2,
-        name: "Ada Lovelace",
-        number: "39-44-5432523"
-    },
-    {
-        id: 3,
-        name: "Dan Abramov",
-        number: "12-43-234567"
-    },
-    {
-        id: 4,
-        name: "Mary Poppendick",
-        number: "39-23-123456"
-    }
-
-]
-
 app.get('/api/persons', (request,response) => {
-    response.json(persons)
+    Person.find({}).then(result => {
+        result.forEach(person => {
+            response.json(person)  
+        })
+        mongoose.connection.close()
+      })
+    
 })
 
-app.get('/api/persons/:id', (request,response) => {
-    const id = Number(request.params.id)
-    const person = persons.find(person => person.id === id)
-    if (person) {
-        response.json(person)
-    } else {
-        response.status(404).end()
-    }
+app.get('/api/persons/:id', (request,response, next) => {
+
+    Person.findById(request.params.id)
+    .then(person => {
+        if (person) {
+            response.json(person)
+        } else {
+            response.status(404).end()
+        }
+    })
+    .catch(error => next(error))
 })
 
 app.get('/info', (request, response) => {
@@ -70,8 +54,6 @@ app.get('/info', (request, response) => {
 
 app.post('/api/persons', (request, response) => {
 
-    const randId = () => Math.floor(Math.random() * Math.floor(100));
-
     const body = request.body
     if(!body.name || !body.number) {
         return response.status(400).json({
@@ -79,31 +61,51 @@ app.post('/api/persons', (request, response) => {
         })
     }
 
-    const person = {
-        id: randId(),
+    const person = new Person({
         name: body.name,
-        number: body.number
-        
+        number: body.number      
+    })
+
+    person.save().then(savedPerson => {
+        response.json(savedPerson)
+    })
+})
+
+app.delete('/api/persons/:id', (request, response, next) => {
+    Person.findByIdAndRemove(request.params.id)
+    .then(result => {
+        response.status(204).end()
+    }) 
+    .catch(error => next(error))
+})
+
+app.put('/api/persons/:id', (request,response, next) => {
+    const body = request.body
+
+    const contact = {
+        name: body.name,
+        number: body.number,
     }
 
-    if (persons.find(contact => contact.name === person.name)) {
-        return response.status(400).json({
-            error: 'name must be unique'
+    Person.findByIdAndUpdate(request.params.id, contact, {new: true})
+        .then(updatedPerson => {
+            response.json(updatedPerson)
         })
+        .catch(error => next(error))
+})
+
+const errorHandler = (error, request, response, next) => {
+    console.log(error.message)
+
+    if (error.name === 'CastError') {
+        return response.status(400).send({ error: 'malformatted id'})
     }
+    next(error)
+}
 
-    persons = persons.concat(person)
-    response.json(person)
-})
+app.use(errorHandler)
 
-app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    persons = persons.filter(person => person.id !== id)
-
-    response.status(204).end()
-})
-
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
 })
